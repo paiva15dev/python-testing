@@ -9,6 +9,39 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
+    """
+    Registra um novo usuario
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+          properties:
+            username:
+              type: string
+              example: joao
+            email:
+              type: string
+              example: joao@email.com
+            password:
+              type: string
+              example: senha123
+    responses:
+      201:
+        description: Usuario criado com sucesso
+      400:
+        description: Campos invalidos
+      409:
+        description: Username ou email ja em uso
+    """
     data = request.get_json()
 
     required = ["username", "email", "password"]
@@ -27,7 +60,6 @@ def register():
 
     user = User(username=data["username"], email=data["email"])
     user.set_password(data["password"])
-
     db.session.add(user)
     db.session.commit()
 
@@ -39,6 +71,33 @@ def register():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    """
+    Autentica o usuario e retorna o token JWT
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: joao
+            password:
+              type: string
+              example: senha123
+    responses:
+      200:
+        description: Login realizado com sucesso
+      401:
+        description: Credenciais invalidas
+    """
     data = request.get_json()
 
     if not data.get("username") or not data.get("password"):
@@ -61,6 +120,19 @@ def login():
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def me():
+    """
+    Retorna os dados do usuario autenticado
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Dados do usuario
+      401:
+        description: Token ausente ou invalido
+    """
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
 
@@ -73,6 +145,35 @@ def me():
 @auth_bp.route("/change-password", methods=["PUT"])
 @jwt_required()
 def change_password():
+    """
+    Altera a senha do usuario autenticado
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - current_password
+            - new_password
+          properties:
+            current_password:
+              type: string
+              example: senha123
+            new_password:
+              type: string
+              example: novaSenha456
+    responses:
+      200:
+        description: Senha alterada com sucesso
+      401:
+        description: Senha atual incorreta
+    """
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
     data = request.get_json()
@@ -89,4 +190,4 @@ def change_password():
     user.set_password(data["new_password"])
     db.session.commit()
 
-    return jsonify({"message": "Senha alterada com sucesso"}), 200  
+    return jsonify({"message": "Senha alterada com sucesso"}), 200

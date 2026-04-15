@@ -10,7 +10,7 @@ tasks_bp = Blueprint("tasks", __name__)
 def get_task_or_404(task_id, user_id):
     task = db.session.get(Task, task_id)
     if not task:
-        return None, jsonify({"error": "Tarefa não encontrada"}), 404
+        return None, jsonify({"error": "Tarefa nao encontrada"}), 404
     if task.user_id != user_id:
         return None, jsonify({"error": "Acesso negado"}), 403
     return task, None, None
@@ -19,6 +19,32 @@ def get_task_or_404(task_id, user_id):
 @tasks_bp.route("", methods=["GET"])
 @jwt_required()
 def list_tasks():
+    """
+    Lista todas as tarefas do usuario logado
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: done
+        type: boolean
+        description: Filtrar por status (true ou false)
+      - in: query
+        name: page
+        type: integer
+        default: 1
+      - in: query
+        name: per_page
+        type: integer
+        default: 10
+    responses:
+      200:
+        description: Lista de tarefas
+      401:
+        description: Token ausente ou invalido
+    """
     user_id = int(get_jwt_identity())
     query = Task.query.filter_by(user_id=user_id)
 
@@ -44,11 +70,39 @@ def list_tasks():
 @tasks_bp.route("", methods=["POST"])
 @jwt_required()
 def create_task():
+    """
+    Cria uma nova tarefa
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - title
+          properties:
+            title:
+              type: string
+              example: Estudar Flask
+            description:
+              type: string
+              example: Ver a documentacao oficial
+    responses:
+      201:
+        description: Tarefa criada com sucesso
+      400:
+        description: Titulo obrigatorio
+    """
     user_id = int(get_jwt_identity())
     data = request.get_json()
 
     if not data or not data.get("title", "").strip():
-        return jsonify({"error": "O campo 'title' é obrigatório"}), 400
+        return jsonify({"error": "O campo title e obrigatorio"}), 400
 
     task = Task(
         title=data["title"].strip(),
@@ -68,6 +122,24 @@ def create_task():
 @tasks_bp.route("/<int:task_id>", methods=["GET"])
 @jwt_required()
 def get_task(task_id):
+    """
+    Retorna uma tarefa especifica
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: task_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Dados da tarefa
+      404:
+        description: Tarefa nao encontrada
+    """
     user_id = int(get_jwt_identity())
     task, err, status = get_task_or_404(task_id, user_id)
     if err:
@@ -78,6 +150,38 @@ def get_task(task_id):
 @tasks_bp.route("/<int:task_id>", methods=["PUT"])
 @jwt_required()
 def update_task(task_id):
+    """
+    Atualiza uma tarefa
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: task_id
+        type: integer
+        required: true
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            title:
+              type: string
+              example: Novo titulo
+            description:
+              type: string
+              example: Nova descricao
+            done:
+              type: boolean
+              example: true
+    responses:
+      200:
+        description: Tarefa atualizada
+      404:
+        description: Tarefa nao encontrada
+    """
     user_id = int(get_jwt_identity())
     task, err, status = get_task_or_404(task_id, user_id)
     if err:
@@ -89,7 +193,7 @@ def update_task(task_id):
 
     if "title" in data:
         if not data["title"].strip():
-            return jsonify({"error": "O título não pode ser vazio"}), 400
+            return jsonify({"error": "O titulo nao pode ser vazio"}), 400
         task.title = data["title"].strip()
 
     if "description" in data:
@@ -97,7 +201,7 @@ def update_task(task_id):
 
     if "done" in data:
         if not isinstance(data["done"], bool):
-            return jsonify({"error": "'done' deve ser true ou false"}), 400
+            return jsonify({"error": "done deve ser true ou false"}), 400
         task.done = data["done"]
 
     db.session.commit()
@@ -110,6 +214,24 @@ def update_task(task_id):
 @tasks_bp.route("/<int:task_id>/toggle", methods=["PATCH"])
 @jwt_required()
 def toggle_task(task_id):
+    """
+    Inverte o status done da tarefa
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: task_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Status alterado
+      404:
+        description: Tarefa nao encontrada
+    """
     user_id = int(get_jwt_identity())
     task, err, status = get_task_or_404(task_id, user_id)
     if err:
@@ -118,7 +240,7 @@ def toggle_task(task_id):
     task.done = not task.done
     db.session.commit()
 
-    status_text = "concluída" if task.done else "pendente"
+    status_text = "concluida" if task.done else "pendente"
     return jsonify({
         "message": f"Tarefa marcada como {status_text}",
         "task": task.to_dict()
@@ -128,6 +250,24 @@ def toggle_task(task_id):
 @tasks_bp.route("/<int:task_id>", methods=["DELETE"])
 @jwt_required()
 def delete_task(task_id):
+    """
+    Deleta uma tarefa
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: task_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Tarefa deletada
+      404:
+        description: Tarefa nao encontrada
+    """
     user_id = int(get_jwt_identity())
     task, err, status = get_task_or_404(task_id, user_id)
     if err:
